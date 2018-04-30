@@ -1,0 +1,92 @@
+/*
+ * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
+ */
+
+import java.nio.file.Paths
+
+buildscript {
+	repositories.jcenter()
+	dependencies.add("classpath", "com.silvertern.gradle:nox:0.15.0")
+}
+
+version = "0.1.0"
+group = "io.teris.caffeinated"
+
+plugins.apply(JavaPlugin)
+
+repositories.jcenter()
+
+dependencies {
+	compileOnly("com.google.code.findbugs:jsr305:3.0.2")
+	compile("com.github.ben-manes.caffeine:caffeine:2.6.2")
+
+	testCompile("junit:junit:4.12")
+	testCompile("org.mockito:mockito-core:2.12.0")
+}
+
+// OSGi manifest generation
+plugins.apply(nox.OSGi)
+
+jar.manifest {
+	spec(group + "." + name, version)
+}
+
+// test and release
+plugins.apply(JacocoPlugin)
+plugins.apply(MavenPlugin)
+
+task("integration", type: Test) {
+	enabled = false
+	dependsOn(test)
+}
+
+tasks.withType(AbstractCompile) {
+	sourceCompatibility = 1.8
+	targetCompatibility = 1.8
+}
+
+tasks.withType(Test) {
+	jacoco {
+		append = true
+		destinationFile = Paths.get((String) buildDir.absolutePath, "jacoco", (String) name + ".exec").toFile()
+	}
+}
+
+jacocoTestReport.reports {
+	xml.enabled = false
+	html.enabled = false
+	csv.enabled = false
+}
+
+task("sourcesJar", type: Jar, dependsOn: classes) {
+	classifier = "sources"
+	from(sourceSets.main.allSource)
+}
+
+javadoc {
+	setFailOnError(false)
+	options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+task("javadocJar", type: Jar, dependsOn: javadoc) {
+	classifier = "javadoc"
+	from(javadoc.destinationDir)
+}
+
+task("coverage", type: JacocoReport) {
+	dependsOn(integration)
+	executionData(fileTree(Paths.get(rootProject.buildDir.absolutePath, "jacoco").toFile()).include("*.exec"))
+
+	setSourceDirectories(files(sourceSets.main.java.srcDirs))
+	setClassDirectories(files(sourceSets.main.output))
+
+	reports {
+		xml.enabled = true
+		xml.setDestination(Paths.get((String) buildDir.absolutePath, "reports", "jacoco", "report.xml").toFile())
+		html.enabled = false
+		csv.enabled = false
+	}
+}
+
+artifacts.add("archives", sourcesJar)
+artifacts.add("archives", javadocJar)
