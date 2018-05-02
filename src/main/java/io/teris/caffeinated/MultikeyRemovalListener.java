@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Profidata AG. All rights reserved
+ * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
  */
 
 package io.teris.caffeinated;
@@ -14,19 +14,19 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 
 
-class MultikeyRemovalListener<K, PK, V> implements RemovalListener<Multikey<K ,PK>, V> {
+class MultikeyRemovalListener<K, DK, V> implements RemovalListener<Multikey<K , DK>, V> {
 
-	private final AsyncLoadingCache<K, Multikey<K, PK>> preCache;
+	private final AsyncLoadingCache<K, Multikey<K, DK>> preCache;
 
 	private final RemovalListener<Set<K>, V> removalListener;
 
-	MultikeyRemovalListener(@Nonnull AsyncLoadingCache<K, Multikey<K, PK>> preCache, @Nullable RemovalListener<Set<K>, V> removalListener) {
+	MultikeyRemovalListener(@Nonnull AsyncLoadingCache<K, Multikey<K, DK>> preCache, @Nullable RemovalListener<Set<K>, V> removalListener) {
 		this.preCache = preCache;
 		this.removalListener = removalListener;
 	}
 
 	@Override
-	public void onRemoval(@Nullable Multikey<K, PK> pk, @Nullable V v, @Nonnull RemovalCause cause) {
+	public void onRemoval(@Nullable Multikey<K, DK> pk, @Nullable V v, @Nonnull RemovalCause cause) {
 		if (pk != null) {
 			Set<K> keys = Collections.unmodifiableSet(pk.getKeys());
 			if (removalListener != null) {

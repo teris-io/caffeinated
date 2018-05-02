@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Profidata AG. All rights reserved
+ * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
  */
 
 package io.teris.caffeinated;
@@ -10,24 +10,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
 
-class Multikey<K, PK> {
+/**
+ * A wrapper structure for derived keys. It uses the derived key value for equality and
+ * hashing while can be mutated with respect to original keys that it holds.
+ */
+class Multikey<K, DK> {
 
-	private final PK primaryKey;
+	private final DK derivedKey;
 
 	private final Set<K> keys = ConcurrentHashMap.newKeySet();
 
-	Multikey(@Nonnull PK primaryKey, @Nonnull K key) {
-		this.primaryKey = primaryKey;
+	Multikey(@Nonnull DK derivedKey, @Nonnull K key) {
+		this.derivedKey = derivedKey;
 		this.keys.add(key);
 	}
 
-	Multikey(@Nonnull PK primaryKey) {
-		this.primaryKey = primaryKey;
+	Multikey(@Nonnull DK derivedKey) {
+		this.derivedKey = derivedKey;
 	}
 
 	@Nonnull
-	PK getPrimaryKey() {
-		return primaryKey;
+	DK getDerivedKey() {
+		return derivedKey;
 	}
 
 	@Nonnull
@@ -36,7 +40,7 @@ class Multikey<K, PK> {
 	}
 
 	@Nonnull
-	Multikey<K, PK> addKey(@Nonnull K key) {
+	Multikey<K, DK> addKey(@Nonnull K key) {
 		keys.add(key);
 		return this;
 	}
@@ -49,11 +53,15 @@ class Multikey<K, PK> {
 		if (other == null || getClass() != other.getClass()) {
 			return false;
 		}
-		return Objects.equals(primaryKey, ((Multikey<?, ?>) other).primaryKey);
+		// it is essential that only the derivedKey is used for hashing and equality
+		// the equality must be guaranteed even if original keys are mutated
+		return Objects.equals(derivedKey, ((Multikey<?, ?>) other).derivedKey);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(primaryKey);
+		// it is essential that only the derivedKey is used for hashing and equality
+		// the equality must be guaranteed even if original keys are mutated
+		return Objects.hash(derivedKey);
 	}
 }

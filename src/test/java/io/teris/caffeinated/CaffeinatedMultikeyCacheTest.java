@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Profidata AG. All rights reserved
+ * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
  */
 
 package io.teris.caffeinated;
@@ -23,7 +23,7 @@ import org.junit.rules.ExpectedException;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 
-public class CaffeineMultikeyCacheTest {
+public class CaffeinatedMultikeyCacheTest {
 
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
@@ -43,7 +43,7 @@ public class CaffeineMultikeyCacheTest {
 		};
 
 		AsyncMultikeyCache<String, String, Integer> cache = AsyncMultikeyCache.<String, String, Integer>newBuilder(Caffeine.newBuilder())
-			.build();
+			.buildAsync();
 
 		List<CompletableFuture<Integer>> futures = new ArrayList<>();
 		for (int i = 0; i < 1000; i++) {
@@ -57,7 +57,7 @@ public class CaffeineMultikeyCacheTest {
 		assertEquals(5, mapperCalled.get());
 		assertEquals(1, loaderCalled.get());
 
-		CaffeineMultikeyCache<String, String, Integer> underTest = (CaffeineMultikeyCache<String, String, Integer>) cache;
+		CaffeinatedMultikeyCache<String, String, Integer> underTest = (CaffeinatedMultikeyCache<String, String, Integer>) cache;
 		assertEquals(5, underTest.preCache.synchronous().asMap().keySet().size());
 		assertEquals(1, underTest.cache.synchronous().asMap().keySet().size());
 	}
@@ -69,7 +69,7 @@ public class CaffeineMultikeyCacheTest {
 
 		AsyncMultikeyCache<String, String, Integer> cache = AsyncMultikeyCache.<String, String, Integer>newBuilder(Caffeine.newBuilder())
 			.removalListener((keys, value, cause) -> removed.complete(keys))
-			.build();
+			.buildAsync();
 
 		Set<String> keys = new HashSet<>(Arrays.asList("aaa", "aAa", "AaA", "AAa", "aaA"));
 
@@ -85,7 +85,7 @@ public class CaffeineMultikeyCacheTest {
 		cache.invalidate("aaa");
 		assertEquals(keys, removed.get(5, TimeUnit.SECONDS));
 
-		CaffeineMultikeyCache<String, String, Integer> underTest = (CaffeineMultikeyCache<String, String, Integer>) cache;
+		CaffeinatedMultikeyCache<String, String, Integer> underTest = (CaffeinatedMultikeyCache<String, String, Integer>) cache;
 		assertEquals(0, underTest.preCache.synchronous().asMap().keySet().size());
 		assertEquals(0, underTest.cache.synchronous().asMap().keySet().size());
 	}
