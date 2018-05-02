@@ -11,13 +11,11 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -31,7 +29,7 @@ public class CaffeineMultikeyCacheTest {
 	public ExpectedException exception = ExpectedException.none();
 
 	@Test
-	public void get_samePrimaryKey_loaderCountOnMultipleAccess_once() {
+	public void get_samePrimaryKey_loaderCountOnMultipleAccess_once() throws Exception {
 		AtomicInteger mapperCalled = new AtomicInteger(0);
 		Function<String, String> keyMapper = (key) -> {
 			mapperCalled.addAndGet(1);
@@ -45,8 +43,6 @@ public class CaffeineMultikeyCacheTest {
 		};
 
 		AsyncMultikeyCache<String, String, Integer> cache = AsyncMultikeyCache.<String, String, Integer>newBuilder(Caffeine.newBuilder())
-			.voidPrimaryKeySupplier(() -> UUID.randomUUID().toString())
-			.voidValueSupplier(() -> Integer.MIN_VALUE)
 			.build();
 
 		List<CompletableFuture<Integer>> futures = new ArrayList<>();
@@ -55,33 +51,23 @@ public class CaffeineMultikeyCacheTest {
 				futures.add(cache.get(key, keyMapper, valueLoader));
 			}
 		}
-		futures.forEach(f -> {
-			try {
-				assertEquals(3, f.get(5, TimeUnit.SECONDS).intValue());
-			}
-			catch (Exception ex) {
-				throw new RuntimeException(ex);
-			}
-		});
+
+		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(5, TimeUnit.SECONDS);
+
+		assertEquals(5, mapperCalled.get());
+		assertEquals(1, loaderCalled.get());
 
 		CaffeineMultikeyCache<String, String, Integer> underTest = (CaffeineMultikeyCache<String, String, Integer>) cache;
 		assertEquals(5, underTest.preCache.synchronous().asMap().keySet().size());
-		assertEquals(1, underTest.primaryCache.synchronous().asMap().keySet().size());
-		assertEquals(5, mapperCalled.get());
-		assertEquals(1, loaderCalled.get());
+		assertEquals(1, underTest.cache.synchronous().asMap().keySet().size());
 	}
 
-	@Ignore("the removal listener does not get called yet")
 	@Test
-	public void get_onRemoval_allKeysInCallback() throws Exception {
-		Caffeine<Object, Object> caffeine = Caffeine.newBuilder()
-			.expireAfterAccess(100, TimeUnit.MILLISECONDS);
+	public void get_onInvalidate_allKeysInCallback() throws Exception {
 
 		CompletableFuture<Set<String>> removed = new CompletableFuture<>();
 
-		AsyncMultikeyCache<String, String, Integer> cache = AsyncMultikeyCache.<String, String, Integer>newBuilder(caffeine)
-			.voidPrimaryKeySupplier(() -> UUID.randomUUID().toString())
-			.voidValueSupplier(() -> Integer.MIN_VALUE)
+		AsyncMultikeyCache<String, String, Integer> cache = AsyncMultikeyCache.<String, String, Integer>newBuilder(Caffeine.newBuilder())
 			.removalListener((keys, value, cause) -> removed.complete(keys))
 			.build();
 
@@ -93,14 +79,14 @@ public class CaffeineMultikeyCacheTest {
 				futures.add(cache.get(key, String::toUpperCase, String::length));
 			}
 		}
-		futures.forEach(f -> {
-			try {
-				f.get(5, TimeUnit.SECONDS);
-			}
-			catch (Exception ex) {
-				throw new RuntimeException(ex);
-			}
-		});
+
+		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(5, TimeUnit.SECONDS);
+
+		cache.invalidate("aaa");
 		assertEquals(keys, removed.get(5, TimeUnit.SECONDS));
+
+		CaffeineMultikeyCache<String, String, Integer> underTest = (CaffeineMultikeyCache<String, String, Integer>) cache;
+		assertEquals(0, underTest.preCache.synchronous().asMap().keySet().size());
+		assertEquals(0, underTest.cache.synchronous().asMap().keySet().size());
 	}
 }

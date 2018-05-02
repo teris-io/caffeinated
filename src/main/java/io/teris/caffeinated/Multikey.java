@@ -4,8 +4,9 @@
 
 package io.teris.caffeinated;
 
-import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
 
@@ -13,7 +14,7 @@ class Multikey<K, PK> {
 
 	private final PK primaryKey;
 
-	private final LinkedHashSet<K> keys = new LinkedHashSet<>();
+	private final Set<K> keys = ConcurrentHashMap.newKeySet();
 
 	Multikey(@Nonnull PK primaryKey, @Nonnull K key) {
 		this.primaryKey = primaryKey;
@@ -30,7 +31,7 @@ class Multikey<K, PK> {
 	}
 
 	@Nonnull
-	LinkedHashSet<K> getKeys() {
+	Set<K> getKeys() {
 		return keys;
 	}
 

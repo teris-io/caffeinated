@@ -8,7 +8,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -18,35 +17,43 @@ import com.github.benmanes.caffeine.cache.RemovalListener;
 import io.teris.caffeinated.CaffeineMultikeyCache.BuilderImpl;
 
 
-public interface AsyncMultikeyCache<K, PK, V> {
+public interface AsyncMultikeyCache<K, SK, V> {
 
 	@Nonnull
-	CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, PK> keyMapper, @Nonnull Function<K, V> valueLoader);
+	CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, SK> keyMapper, @Nonnull Function<K, V> valueLoader);
+
+	@Nonnull
+	CompletableFuture<V> get(@Nonnull K key);
+
+	@Nonnull
+	CompletableFuture<V> getIfPresent(@Nonnull K key);
 
 	@Nullable
-	PK getPrimaryKeyIfPresent(@Nonnull K key);
+	SK getPrimaryKeyIfPresent(@Nonnull K key);
 
 	@Nullable
-	V getIfPresent(@Nonnull PK primaryKey);
+	V getByPrimaryKeyIfPresent(@Nonnull SK secondaryKey);
 
-	interface Builder<K, PK, V> {
+	void invalidate(@Nonnull K key);
 
-		@Nonnull
-		Builder<K, PK, V> removalListener(@Nonnull RemovalListener<Set<K>, V> removalListener);
+	void invalidateAll(@Nonnull Iterable<K> keys);
 
-		@Nonnull
-		Builder<K, PK, V> executor(@Nonnull Executor executor);
-
-		// TODO unfortunate that caffeine requires a default loader
-		@Nonnull
-		Builder<K, PK, V> voidPrimaryKeySupplier(@Nonnull Supplier<PK> voidPrimaryKeySupplier);
-
-		// TODO unfortunate that caffeine requires a default loader
-		@Nonnull
-		Builder<K, PK, V> voidValueSupplier(@Nonnull Supplier<V> voidValueSupplier);
+	interface Builder<K, SK, V> {
 
 		@Nonnull
-		AsyncMultikeyCache<K, PK, V> build();
+		Builder<K, SK, V> removalListener(@Nonnull RemovalListener<Set<K>, V> removalListener);
+
+		@Nonnull
+		Builder<K, SK, V> executor(@Nonnull Executor executor);
+
+		@Nonnull
+		Builder<K, SK, V> keyMapper(@Nonnull Function<K, SK> keyMapper);
+
+		@Nonnull
+		Builder<K, SK, V> valueLoader(@Nonnull Function<K, V> valueLoader);
+
+		@Nonnull
+		AsyncMultikeyCache<K, SK, V> build();
 	}
 
 	@Nonnull
