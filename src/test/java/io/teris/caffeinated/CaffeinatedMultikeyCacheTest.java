@@ -22,11 +22,22 @@ import org.junit.rules.ExpectedException;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import io.teris.caffeinated.dao.AuthenticationService;
+import io.teris.caffeinated.dao.DummyAuthenticationService;
+import io.teris.caffeinated.dao.DummyUserResolutionService;
+import io.teris.caffeinated.dao.UserResolutionService;
+
 
 public class CaffeinatedMultikeyCacheTest {
 
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
+
+	private final UserResolutionService userService = new DummyUserResolutionService();
+
+	private final AuthenticationService authService = new DummyAuthenticationService(userService);
+
+
 
 	@Test
 	public void get_samePrimaryKey_loaderCountOnMultipleAccess_once() throws Exception {
@@ -63,7 +74,7 @@ public class CaffeinatedMultikeyCacheTest {
 	}
 
 	@Test
-	public void get_onInvalidate_allKeysInCallback() throws Exception {
+	public void invalidate_allKeysInCallback() throws Exception {
 
 		CompletableFuture<Set<String>> removed = new CompletableFuture<>();
 
