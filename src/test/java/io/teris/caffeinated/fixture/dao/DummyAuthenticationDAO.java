@@ -20,18 +20,28 @@ public class DummyAuthenticationDAO implements AuthenticationDAO {
 	}
 
 	@Override
-	public Session authByUsername(String username, String password) {
+	public void validateUsernameAuth(String username, String password) {
 		try {
 			Thread.sleep(dbAccessLatencyMs);
 			String hash = Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
 			if (!DummyState.users.contains(hash)) {
 				throw new IllegalArgumentException("access denied");
 			}
-			return new Session(username);
 		}
 		catch (InterruptedException ex) {
 			throw new IllegalStateException("operation interrupted");
 		}
+	}
+
+	@Override
+	public Session authByUsername(String username, String password) {
+		validateUsernameAuth(username, password);
+		return new Session(username);
+	}
+
+	@Override
+	public void validateApiKeyAuth(String apiKey) {
+		userResolutionDAO.resolveForApiKey(apiKey);
 	}
 
 	@Override

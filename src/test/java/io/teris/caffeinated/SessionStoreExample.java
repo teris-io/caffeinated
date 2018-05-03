@@ -12,6 +12,7 @@ import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Before;
@@ -58,52 +59,45 @@ public class SessionStoreExample {
 		@Override
 		public CompletableFuture<String> authByUsername(Context context, String username, String password) {
 			String key = Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
-			AtomicReference<Session> tempSessionHolder = new AtomicReference<>(null);
+			AtomicBoolean createdHolder = new AtomicBoolean();
 			return sessionStore
 				.get(key, $ -> {
-					tempSessionHolder.set(authDao.authByUsername(username, password));
+					authDao.validateUsernameAuth(username, password);
 					return username;
 				}, $ -> {
-					Session res = tempSessionHolder.get();
-					if (res == null) {
-						throw new IllegalArgumentException("access denied");
-					}
+					Session res = authDao.authByUsername(username, password);
+					createdHolder.set(true);
 					return res;
 				})
-				.thenCompose(session -> completeAuth(session, tempSessionHolder.get(), username));
+				.thenCompose(session -> completeAuth(session, createdHolder.get(), username));
 		}
 
 		@Override
 		public CompletableFuture<String> authByApiKey(Context context, String apikey) {
 			AtomicReference<String> usernameHolder = new AtomicReference<>(null);
-			AtomicReference<Session> tempSessionHolder = new AtomicReference<>(null);
+			AtomicBoolean createdHolder = new AtomicBoolean();
 			return sessionStore
 				.get(apikey, $ -> {
-					tempSessionHolder.set(authDao.authByApiKey(apikey));
+					authDao.validateApiKeyAuth(apikey);
 					return usernameHolder.updateAndGet($$ -> userDao.resolveForApiKey(apikey));
 				}, $ -> {
-					Session res = tempSessionHolder.get();
-					if (res == null) {
-						throw new IllegalArgumentException("access denied");
-					}
+					Session res = authDao.authByApiKey(apikey);
+					createdHolder.set(true);
 					return res;
 				})
-				.thenCompose(session -> completeAuth(session, tempSessionHolder.get(), usernameHolder.get()));
+				.thenCompose(session -> completeAuth(session, createdHolder.get(), usernameHolder.get()));
 		}
 
-		private CompletableFuture<String> completeAuth(Session cachedSession, Session tempSession, String derivedKey) {
+		private CompletableFuture<String> completeAuth(Session session, boolean created, String derivedKey) {
 			CompletableFuture<String> res = new CompletableFuture<>();
-			if (cachedSession == tempSession) {
+			if (created) {
 				// cached and temp are the same => newly created => add sessionId as one of the original keys
-				sessionStore.get(cachedSession.sessionId, $ -> derivedKey, $ -> {
+				sessionStore.get(session.sessionId, $ -> derivedKey, $ -> {
 					throw new IllegalStateException("value expected to be present");
 				})
-				.whenComplete(($, $$) -> res.complete(cachedSession.sessionId));
+				.whenComplete(($, $$) -> res.complete(session.sessionId));
 			} else {
-				res.complete(cachedSession.sessionId);
-				if (tempSession != null) {
-					tempSession.expire();
-				}
+				res.complete(session.sessionId);
 			}
 			return res;
 		}
@@ -152,7 +146,7 @@ public class SessionStoreExample {
 			.thenCompose(sessionId -> authService.getSessionById(context, sessionId)).get(5, TimeUnit.SECONDS);
 		assertSame(session, anotherSession);
 
-		assertEquals(2, Session.createdCount.get());
+		assertEquals(1, Session.createdCount.get());
 	}
 
 	@Test
@@ -175,7 +169,7 @@ public class SessionStoreExample {
 			.thenCompose(sessionId -> authService.getSessionById(context, sessionId)).get(5, TimeUnit.SECONDS);
 		assertSame(session, anotherSession);
 
-		assertEquals(2, Session.createdCount.get());
+		assertEquals(1, Session.createdCount.get());
 	}
 
 	@Test
@@ -224,28 +218,6 @@ public class SessionStoreExample {
 		Context context = new Context();
 		AuthenticationService authService = new SessionStoreBackedAuthenticationService();
 
-		exception.expectMessage("access denied");
-		try {
-			authService.authByApiKey(context, "2375629386592837658374").get(5, TimeUnit.SECONDS);
-		} catch (ExecutionException ex) {
-
-			SessionStoreBackedAuthenticationService impl = (SessionStoreBackedAuthenticationService) authService;
-			CaffeinatedMultikeyCache<String, String, Session> sessionStore = (CaffeinatedMultikeyCache<String, String, Session>)impl.sessionStore;
-
-			assertEquals(0, sessionStore.cache.synchronous().asMap().size());
-			// FIXME: caffeine bug for the size here
-			assertEquals(1, sessionStore.keys2derivedKey.synchronous().asMap().size());
-			assertEquals(0, sessionStore.derivedKey2Keys.asMap().size());
-
-			throw ex;
-		}
-	}
-
-	@Test
-	public void valueLoaderThrows_withCachedValueForSameDerivedKey_exceptionallyAndStateUnchanged() throws Exception {
-		Context context = new Context();
-		AuthenticationService authService = new SessionStoreBackedAuthenticationService();
-
 		// state
 		authService.authByUsername(context, "joe", "hkAS-4Dti-gg532-D")
 			.thenCompose(sessionId -> authService.getSessionById(context, sessionId)).get(5, TimeUnit.SECONDS);
@@ -258,13 +230,11 @@ public class SessionStoreExample {
 		assertEquals(1, sessionStore.derivedKey2Keys.asMap().size());
 
 		exception.expectMessage("access denied");
-		exception.expect(ExecutionException.class);
 		try {
 			authService.authByUsername(context, "joe", "totally invalid password").get(5, TimeUnit.SECONDS);
 		} catch (ExecutionException ex) {
 			assertEquals(1, sessionStore.cache.synchronous().asMap().size());
-			// FIXME: caffeine bug for the size here
-			assertEquals(3, sessionStore.keys2derivedKey.synchronous().asMap().size());
+			// TODO caffeine asMap.size bug produces 3: assertEquals(2, sessionStore.keys2derivedKey.synchronous().asMap().size());
 			assertEquals(1, sessionStore.derivedKey2Keys.asMap().size());
 
 			throw ex;
