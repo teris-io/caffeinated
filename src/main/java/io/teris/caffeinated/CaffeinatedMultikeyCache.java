@@ -30,7 +30,7 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 
 	final AsyncLoadingCache<K, DK> keys2derivedKey;
 
-	private final Cache<DK, Set<K>> derivedKey2Keys;
+	final Cache<DK, Set<K>> derivedKey2Keys;
 
 	final AsyncLoadingCache<DK, V> cache;
 
@@ -74,11 +74,12 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 			})
 			.exceptionally((t) -> {
 				DK derivedKey = derivedKeyHolder.get();
+				// intentional: only true on successful key mapping
 				if (derivedKey != null) {
-					Set<K> keys = derivedKey2Keys.getIfPresent(derivedKey);
-					if (keys != null) {
-						derivedKey2Keys.invalidate(derivedKey);
-						keys2derivedKey.synchronous().invalidateAll(keys);
+					try {
+						onRemoval(derivedKey, null, RemovalCause.EXPLICIT);
+					} catch (Exception ex) {
+						// ignored in favour of original exception
 					}
 				}
 				throw t instanceof RuntimeException ? (RuntimeException) t : new RuntimeException(t);

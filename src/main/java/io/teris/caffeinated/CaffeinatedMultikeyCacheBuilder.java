@@ -22,11 +22,11 @@ class CaffeinatedMultikeyCacheBuilder<K, DK, V> implements MultikeyCacheBuilder<
 	RemovalListener<Set<K>, V> removalListener = null;
 
 	Function<K, DK> keyMapper = $ -> {
-		throw new IllegalStateException("cache does not have a default key mapper");
+		throw new IllegalStateException("missing default key mapper");
 	};
 
 	Function<K, V> valueLoader = $ -> {
-		throw new IllegalStateException("cache does not have a default value loader");
+		throw new IllegalStateException("missing default value loader");
 	};
 
 	Executor executor = Executors.newCachedThreadPool();

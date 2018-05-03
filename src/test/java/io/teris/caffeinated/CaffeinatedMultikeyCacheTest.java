@@ -56,10 +56,6 @@ public class CaffeinatedMultikeyCacheTest {
 
 		assertEquals(5, mapperCalled.get());
 		assertEquals(1, loaderCalled.get());
-
-		CaffeinatedMultikeyCache<String, String, Integer> underTest = (CaffeinatedMultikeyCache<String, String, Integer>) cache;
-		assertEquals(5, underTest.keys2derivedKey.synchronous().asMap().keySet().size());
-		assertEquals(1, underTest.cache.synchronous().asMap().keySet().size());
 	}
 
 	@Test
@@ -84,9 +80,5 @@ public class CaffeinatedMultikeyCacheTest {
 
 		cache.invalidate("aaa");
 		assertEquals(keys, removed.get(5, TimeUnit.SECONDS));
-
-		CaffeinatedMultikeyCache<String, String, Integer> underTest = (CaffeinatedMultikeyCache<String, String, Integer>) cache;
-		assertEquals(0, underTest.keys2derivedKey.synchronous().asMap().keySet().size());
-		assertEquals(0, underTest.cache.synchronous().asMap().keySet().size());
 	}
 }
