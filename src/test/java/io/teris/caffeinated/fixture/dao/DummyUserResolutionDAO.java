@@ -2,17 +2,17 @@
  * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
  */
 
-package io.teris.caffeinated.dao;
+package io.teris.caffeinated.fixture.dao;
 
 import java.util.Base64;
 
 
-public class DummyUserResolutionService implements UserResolutionService {
+public class DummyUserResolutionDAO implements UserResolutionDAO {
 
-	public long dbAccessLatencyMs = 100;
+	public long dbAccessLatencyMs = 20;
 
 	@Override
-	public String resolveForApiKey(Context context, String apiKey) {
+	public String resolveForApiKey(String apiKey) {
 		try {
 			Thread.sleep(dbAccessLatencyMs);
 			if (!DummyState.keys.contains(apiKey)) {

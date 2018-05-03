@@ -63,7 +63,14 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 				}
 				return newMultikey;
 			})
-			.thenCompose(multikey -> cache.get(multikey, $ -> valueLoader.apply(key)));
+			.thenCompose(multikey -> {
+				try {
+					return cache.get(multikey, $ -> valueLoader.apply(key));
+				} catch (Exception ex) {
+					preCache.synchronous().invalidateAll(multikey.getKeys());
+					throw ex;
+				}
+			});
 	}
 
 	@Nonnull

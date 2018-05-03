@@ -2,7 +2,7 @@
  * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
  */
 
-package io.teris.caffeinated.dao;
+package io.teris.caffeinated.fixture.dao;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

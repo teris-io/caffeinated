@@ -22,10 +22,10 @@ import org.junit.rules.ExpectedException;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import io.teris.caffeinated.dao.AuthenticationService;
-import io.teris.caffeinated.dao.DummyAuthenticationService;
-import io.teris.caffeinated.dao.DummyUserResolutionService;
-import io.teris.caffeinated.dao.UserResolutionService;
+import io.teris.caffeinated.fixture.dao.AuthenticationDAO;
+import io.teris.caffeinated.fixture.dao.DummyAuthenticationDAO;
+import io.teris.caffeinated.fixture.dao.DummyUserResolutionDAO;
+import io.teris.caffeinated.fixture.dao.UserResolutionDAO;
 
 
 public class CaffeinatedMultikeyCacheTest {
@@ -33,9 +33,9 @@ public class CaffeinatedMultikeyCacheTest {
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
 
-	private final UserResolutionService userService = new DummyUserResolutionService();
+	private final UserResolutionDAO userService = new DummyUserResolutionDAO();
 
-	private final AuthenticationService authService = new DummyAuthenticationService(userService);
+	private final AuthenticationDAO authService = new DummyAuthenticationDAO(userService);
 
 
 

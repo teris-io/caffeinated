@@ -2,23 +2,25 @@
  * Copyright (c) teris.io & Oleg Sklyar, 2018. All rights reserved
  */
 
-package io.teris.caffeinated.dao;
+package io.teris.caffeinated.fixture.dao;
 
 import java.util.Base64;
 
+import io.teris.caffeinated.fixture.entity.Session;
 
-public class DummyAuthenticationService implements AuthenticationService {
 
-	private final UserResolutionService userResolutionService;
+public class DummyAuthenticationDAO implements AuthenticationDAO {
 
-	public long dbAccessLatencyMs = 100;
+	private final UserResolutionDAO userResolutionDAO;
 
-	public DummyAuthenticationService(UserResolutionService userResolutionService) {
-		this.userResolutionService = userResolutionService;
+	public long dbAccessLatencyMs = 20;
+
+	public DummyAuthenticationDAO(UserResolutionDAO userResolutionDAO) {
+		this.userResolutionDAO = userResolutionDAO;
 	}
 
 	@Override
-	public Session authByUsername(Context context, String username, String password) {
+	public Session authByUsername(String username, String password) {
 		try {
 			Thread.sleep(dbAccessLatencyMs);
 			String hash = Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
@@ -33,10 +35,10 @@ public class DummyAuthenticationService implements AuthenticationService {
 	}
 
 	@Override
-	public Session authByApiKey(Context context, String apiKey) {
+	public Session authByApiKey(String apiKey) {
 		try {
 			Thread.sleep(dbAccessLatencyMs);
-			String username = userResolutionService.resolveForApiKey(context, apiKey);
+			String username = userResolutionDAO.resolveForApiKey(apiKey);
 			return new Session(username);
 		} catch (IllegalArgumentException ex) {
 			throw new IllegalArgumentException("access denied");
