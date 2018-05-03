@@ -6,13 +6,18 @@ package io.teris.caffeinated;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.RemovalCause;
+import com.github.benmanes.caffeine.cache.RemovalListener;
 
 
 /**
@@ -23,53 +28,60 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
  */
 class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V> {
 
-	final AsyncLoadingCache<K, Multikey<K, DK>> preCache;
+	final AsyncLoadingCache<K, DK> keys2derivedKey;
 
-	final AsyncLoadingCache<Multikey<K, DK>, V> cache;
+	private final Cache<DK, Set<K>> derivedKey2Keys;
+
+	final AsyncLoadingCache<DK, V> cache;
 
 	private final Function<K, DK> keyMapper;
 
 	private final Function<K, V> valueLoader;
 
+	private final RemovalListener<Set<K>, V> removalListener;
+
 	CaffeinatedMultikeyCache(CaffeinatedMultikeyCacheBuilder<K, DK, V> builder) {
-		preCache = Caffeine.newBuilder()
+		keys2derivedKey = Caffeine.newBuilder()
 			.executor(builder.executor)
 			.buildAsync($ -> {
-				throw new IllegalStateException("cache requires external key mapper");
+				throw new IllegalStateException("missing default key mapper");
 			});
+		derivedKey2Keys = Caffeine.newBuilder().build();
 		cache = builder.caffeine
 			.executor(builder.executor)
-			.removalListener(new MultikeyRemovalListener<>(preCache, builder.removalListener))
+			.removalListener(this::onRemoval)
 			.buildAsync($ -> {
-				throw new IllegalStateException("cache requires external value loader");
+				throw new IllegalStateException("missing default value loader");
 			});
 		keyMapper = builder.keyMapper;
 		valueLoader = builder.valueLoader;
+		removalListener = builder.removalListener;
 	}
 
 	@Override
 	@Nonnull
 	public CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, DK> keyMapper, @Nonnull Function<K, V> valueLoader) {
-		Set<Multikey<K, DK>> multikeySet = cache.synchronous().asMap().keySet();
-		return preCache
+		AtomicReference<DK> derivedKeyHolder = new AtomicReference<>(null);
+		return keys2derivedKey
 			.get(key, $ -> {
-				Multikey<K, DK> newMultikey = new Multikey<>(keyMapper.apply(key), key);
-				if (multikeySet.contains(newMultikey)) {
-					for (Multikey<K, DK> multikey : multikeySet) {
-						if (newMultikey.equals(multikey)) {
-							return multikey.addKey(key);
-						}
+				DK derivedKey = keyMapper.apply(key);
+				derivedKey2Keys.get(derivedKey, $$ -> ConcurrentHashMap.newKeySet()).add(key);
+				return derivedKey;
+			})
+			.thenCompose(derivedKey -> {
+				derivedKeyHolder.set(derivedKey);
+				return cache.get(derivedKey, $ -> valueLoader.apply(key));
+			})
+			.exceptionally((t) -> {
+				DK derivedKey = derivedKeyHolder.get();
+				if (derivedKey != null) {
+					Set<K> keys = derivedKey2Keys.getIfPresent(derivedKey);
+					if (keys != null) {
+						derivedKey2Keys.invalidate(derivedKey);
+						keys2derivedKey.synchronous().invalidateAll(keys);
 					}
 				}
-				return newMultikey;
-			})
-			.thenCompose(multikey -> {
-				try {
-					return cache.get(multikey, $ -> valueLoader.apply(key));
-				} catch (Exception ex) {
-					preCache.synchronous().invalidateAll(multikey.getKeys());
-					throw ex;
-				}
+				throw t instanceof RuntimeException ? (RuntimeException) t : new RuntimeException(t);
 			});
 	}
 
@@ -82,43 +94,53 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 	@Nullable
 	@Override
 	public V getIfPresent(@Nonnull K key) {
-		Multikey<K, DK> multikey = preCache.synchronous().getIfPresent(key);
-		if (multikey == null) {
-			return null;
-		}
-		return cache.synchronous().getIfPresent(multikey);
+		DK derivedKey= keys2derivedKey.synchronous().getIfPresent(key);
+		return derivedKey != null ? cache.synchronous().getIfPresent(derivedKey) : null;
 	}
 
 	@Nullable
 	@Override
 	public DK getDerivedKeyIfPresent(@Nonnull K key) {
-		Multikey<K, DK> multikey = preCache.synchronous().getIfPresent(key);
-		return multikey != null ? multikey.getDerivedKey() : null;
+		return keys2derivedKey.synchronous().getIfPresent(key);
 	}
 
 	@Nullable
 	@Override
 	public V getByDerivedKeyIfPresent(@Nonnull DK derivedKey) {
-		return cache.synchronous().getIfPresent(new Multikey<>(derivedKey));
+		return cache.synchronous().getIfPresent(derivedKey);
 	}
 
 	@Override
 	public void invalidate(@Nonnull K key) {
-		Multikey<K, DK> multikey = preCache.synchronous().getIfPresent(key);
-		if (multikey != null) {
-			cache.synchronous().invalidate(multikey);
+		DK derivedKey = keys2derivedKey.synchronous().getIfPresent(key);
+		if (derivedKey != null) {
+			cache.synchronous().invalidate(derivedKey);
 		}
 	}
 
 	@Override
 	public void invalidateAll(@Nonnull Iterable<K> keys) {
-		LoadingCache<K, Multikey<K, DK>> syncPreCache = preCache.synchronous();
-		LoadingCache<Multikey<K, DK>, V> syncCache = cache.synchronous();
+		LoadingCache<K, DK> syncPreCache = keys2derivedKey.synchronous();
+		LoadingCache<DK, V> syncCache = cache.synchronous();
 		keys.forEach(key -> {
-			Multikey<K, DK> multikey = syncPreCache.getIfPresent(key);
-			if (multikey != null) {
-				syncCache.invalidate(multikey);
+			DK derivedKey = syncPreCache.getIfPresent(key);
+			if (derivedKey != null) {
+				syncCache.invalidate(derivedKey);
 			}
 		});
 	}
+
+	private void onRemoval(@Nullable DK derivedKey, @Nullable V v, @Nonnull RemovalCause cause) {
+		if (derivedKey != null) {
+			Set<K> keys = derivedKey2Keys.getIfPresent(derivedKey);
+			derivedKey2Keys.invalidate(derivedKey);
+			if (keys != null) {
+				if (removalListener != null) {
+					removalListener.onRemoval(keys, v, cause);
+				}
+				keys2derivedKey.synchronous().invalidateAll(keys);
+			}
+		}
+	}
+
 }

@@ -22,22 +22,11 @@ import org.junit.rules.ExpectedException;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import io.teris.caffeinated.fixture.dao.AuthenticationDAO;
-import io.teris.caffeinated.fixture.dao.DummyAuthenticationDAO;
-import io.teris.caffeinated.fixture.dao.DummyUserResolutionDAO;
-import io.teris.caffeinated.fixture.dao.UserResolutionDAO;
-
 
 public class CaffeinatedMultikeyCacheTest {
 
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
-
-	private final UserResolutionDAO userService = new DummyUserResolutionDAO();
-
-	private final AuthenticationDAO authService = new DummyAuthenticationDAO(userService);
-
-
 
 	@Test
 	public void get_samePrimaryKey_loaderCountOnMultipleAccess_once() throws Exception {
@@ -69,7 +58,7 @@ public class CaffeinatedMultikeyCacheTest {
 		assertEquals(1, loaderCalled.get());
 
 		CaffeinatedMultikeyCache<String, String, Integer> underTest = (CaffeinatedMultikeyCache<String, String, Integer>) cache;
-		assertEquals(5, underTest.preCache.synchronous().asMap().keySet().size());
+		assertEquals(5, underTest.keys2derivedKey.synchronous().asMap().keySet().size());
 		assertEquals(1, underTest.cache.synchronous().asMap().keySet().size());
 	}
 
@@ -97,7 +86,7 @@ public class CaffeinatedMultikeyCacheTest {
 		assertEquals(keys, removed.get(5, TimeUnit.SECONDS));
 
 		CaffeinatedMultikeyCache<String, String, Integer> underTest = (CaffeinatedMultikeyCache<String, String, Integer>) cache;
-		assertEquals(0, underTest.preCache.synchronous().asMap().keySet().size());
+		assertEquals(0, underTest.keys2derivedKey.synchronous().asMap().keySet().size());
 		assertEquals(0, underTest.cache.synchronous().asMap().keySet().size());
 	}
 }
