@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.junit.Rule;
@@ -37,7 +38,7 @@ public class CaffeinatedMultikeyCacheTest {
 		};
 
 		AtomicInteger loaderCalled = new AtomicInteger(0);
-		Function<String, Integer> valueLoader = (primaryKey) -> {
+		BiFunction<String, String, Integer> valueLoader = (primaryKey, derivedKey) -> {
 			loaderCalled.addAndGet(1);
 			return primaryKey.length();
 		};
@@ -72,7 +73,7 @@ public class CaffeinatedMultikeyCacheTest {
 		List<CompletableFuture<Integer>> futures = new ArrayList<>();
 		for (int i = 0; i < 1000; i++) {
 			for (String key: keys) {
-				futures.add(cache.get(key, String::toUpperCase, String::length));
+				futures.add(cache.get(key, String::toUpperCase, (primaryKey, derivedKey) -> primaryKey.length()));
 			}
 		}
 

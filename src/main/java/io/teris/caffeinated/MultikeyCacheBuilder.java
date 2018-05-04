@@ -6,6 +6,7 @@ package io.teris.caffeinated;
 
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 
@@ -51,11 +52,11 @@ public interface MultikeyCacheBuilder<K, DK, V> {
 	 * completed exceptionally with an {@code IllegalStateException} if the {@code get}
 	 * method without the mapper and loader is used.
 	 *
-	 * @param valueLoader the function to map from key to the value to cache
+	 * @param valueLoader the function to map from key/derived-key pair to the cached value
 	 * @return the updated builder
 	 */
 	@Nonnull
-	MultikeyCacheBuilder<K, DK, V> valueLoader(@Nonnull Function<K, V> valueLoader);
+	MultikeyCacheBuilder<K, DK, V> valueLoader(@Nonnull BiFunction<K, DK, V> valueLoader);
 
 	/**
 	 * Sets the default executor for evaluating key mapper and value loader asynchronously.

@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 
@@ -25,7 +26,7 @@ class CaffeinatedMultikeyCacheBuilder<K, DK, V> implements MultikeyCacheBuilder<
 		throw new IllegalStateException("missing default key mapper");
 	};
 
-	Function<K, V> valueLoader = $ -> {
+	BiFunction<K, DK, V> valueLoader = ($, $$) -> {
 		throw new IllegalStateException("missing default value loader");
 	};
 
@@ -51,7 +52,7 @@ class CaffeinatedMultikeyCacheBuilder<K, DK, V> implements MultikeyCacheBuilder<
 
 	@Nonnull
 	@Override
-	public MultikeyCacheBuilder<K, DK, V> valueLoader(@Nonnull Function<K, V> valueLoader) {
+	public MultikeyCacheBuilder<K, DK, V> valueLoader(@Nonnull BiFunction<K, DK, V> valueLoader) {
 		this.valueLoader = valueLoader;
 		return this;
 	}

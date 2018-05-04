@@ -4,6 +4,8 @@
 
 package io.teris.caffeinated;
 
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
@@ -64,7 +66,7 @@ public class SessionStoreExample {
 				.get(key, $ -> {
 					authDao.validateUsernameAuth(username, password);
 					return username;
-				}, $ -> {
+				}, ($, $$) -> {
 					Session res = authDao.authByUsername(username, password);
 					createdHolder.set(true);
 					return res;
@@ -80,7 +82,7 @@ public class SessionStoreExample {
 				.get(apikey, $ -> {
 					authDao.validateApiKeyAuth(apikey);
 					return usernameHolder.updateAndGet($$ -> userDao.resolveForApiKey(apikey));
-				}, $ -> {
+				}, ($, $$) -> {
 					Session res = authDao.authByApiKey(apikey);
 					createdHolder.set(true);
 					return res;
@@ -92,7 +94,7 @@ public class SessionStoreExample {
 			CompletableFuture<String> res = new CompletableFuture<>();
 			if (created) {
 				// cached and temp are the same => newly created => add sessionId as one of the original keys
-				sessionStore.get(session.sessionId, $ -> derivedKey, $ -> {
+				sessionStore.get(session.sessionId, $ -> derivedKey, ($, $$) -> {
 					throw new IllegalStateException("value expected to be present");
 				})
 				.whenComplete(($, $$) -> res.complete(session.sessionId));
@@ -234,7 +236,7 @@ public class SessionStoreExample {
 			authService.authByUsername(context, "joe", "totally invalid password").get(5, TimeUnit.SECONDS);
 		} catch (ExecutionException ex) {
 			assertEquals(1, sessionStore.cache.synchronous().asMap().size());
-			// TODO caffeine asMap.size bug produces 3: assertEquals(2, sessionStore.keys2derivedKey.synchronous().asMap().size());
+			await().until(() -> sessionStore.keys2derivedKey.synchronous().asMap().size(), is(2));
 			assertEquals(1, sessionStore.derivedKey2Keys.asMap().size());
 
 			throw ex;

@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,7 +37,7 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 
 	private final Function<K, DK> keyMapper;
 
-	private final Function<K, V> valueLoader;
+	private final BiFunction<K, DK, V> valueLoader;
 
 	private final RemovalListener<Set<K>, V> removalListener;
 
@@ -60,7 +61,7 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 
 	@Override
 	@Nonnull
-	public CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, DK> keyMapper, @Nonnull Function<K, V> valueLoader) {
+	public CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, DK> keyMapper, @Nonnull BiFunction<K, DK, V> valueLoader) {
 		AtomicReference<DK> derivedKeyHolder = new AtomicReference<>(null);
 		return keys2derivedKey
 			.get(key, $ -> {
@@ -70,7 +71,7 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 			})
 			.thenCompose(derivedKey -> {
 				derivedKeyHolder.set(derivedKey);
-				return cache.get(derivedKey, $ -> valueLoader.apply(key));
+				return cache.get(derivedKey, $ -> valueLoader.apply(key, derivedKey));
 			})
 			.exceptionally((t) -> {
 				DK derivedKey = derivedKeyHolder.get();

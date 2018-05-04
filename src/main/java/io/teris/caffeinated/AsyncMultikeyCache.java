@@ -5,6 +5,7 @@
 package io.teris.caffeinated;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,7 +69,7 @@ public interface AsyncMultikeyCache<K, DK, V> {
 	 *         value is missing (or key is null), or completed exceptionally otherwise
 	 */
 	@Nonnull
-	CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, DK> keyMapper, @Nonnull Function<K, V> valueLoader);
+	CompletableFuture<V> get(@Nonnull K key, @Nonnull Function<K, DK> keyMapper, @Nonnull BiFunction<K, DK, V> valueLoader);
 
 	/**
 	 * Returns a completable future with the cached value associated with the derived key
