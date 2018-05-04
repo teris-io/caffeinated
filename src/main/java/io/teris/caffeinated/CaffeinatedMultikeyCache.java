@@ -75,10 +75,14 @@ class CaffeinatedMultikeyCache<K, DK, V> implements AsyncMultikeyCache<K, DK, V>
 			})
 			.exceptionally((t) -> {
 				DK derivedKey = derivedKeyHolder.get();
-				// intentional: only true on successful key mapping
+				// intentional: only true if key mapper called and exceptions occurred in value mapper
 				if (derivedKey != null) {
 					try {
-						onRemoval(derivedKey, null, RemovalCause.EXPLICIT);
+						Set<K> keys = derivedKey2Keys.getIfPresent(derivedKey);
+						if (keys != null) {
+							keys.remove(key);
+						}
+						keys2derivedKey.synchronous().invalidate(key);
 					} catch (Exception ex) {
 						// ignored in favour of original exception
 					}

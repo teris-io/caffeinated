@@ -1,5 +1,7 @@
 .gradle/
 
+build.properties
+
 build/
 target/
 out/
