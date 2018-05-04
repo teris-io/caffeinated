@@ -244,6 +244,7 @@ public class SessionStoreExample {
 		String sessionId0 = authService.authByUsername(context, "joe", "hkAS-4Dti-gg532-D").get(5, TimeUnit.SECONDS);
 		Session session0 = authService.getSessionById(context, sessionId0).get(5, TimeUnit.SECONDS);
 		authService.logout(context, sessionId0).get(5, TimeUnit.SECONDS);
+		Thread.sleep(50);
 
 		String sessionId1 = authService.authByUsername(context, "joe", "hkAS-4Dti-gg532-D").get(5, TimeUnit.SECONDS);
 
