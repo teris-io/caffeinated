@@ -14,15 +14,9 @@ variants:
 
 
 * with default loaders registered on the cached during construction (none are registered
-by default and the future will complete exceptionally):
+by default and the future will complete exceptionally): `CompletableFuture<V> get(K key)` 
 
-
-    CompletableFuture<V> get(K key) 
-
-* with explicit loaders:
-
-
-    CompletableFuture<V> get(K key, Function<K,DK> keyMapper, BiFunction<K,DK,V> valueLoader)
+* with explicit loaders: `CompletableFuture<V> get(K key, Function<K,DK> keyMapper, BiFunction<K,DK,V> valueLoader)`
 
 
 The underlying cache is based on [AsyncLoadingCache][1] from [`caffeine`][2] and can be configured
